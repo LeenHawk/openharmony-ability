@@ -102,6 +102,7 @@ function WebBuilder(data: WebviewNodeData) {
     .javaScriptOnDocumentStart(data?.initializationScripts)
     .onControllerAttached(() => {
       const ctrl = data.controller;
+      if (data.userAgent) ctrl.setCustomUserAgent(data.userAgent);
       // load url or html string
       if (data?.url) {
         const header: WebHeader[] = Object.keys(
@@ -181,6 +182,7 @@ function EmbeddedWebBuilder(data: WebviewNodeData) {
         }
         data.didInitialLoad = true;
         const ctrl = data.controller;
+        if (data.userAgent) ctrl.setCustomUserAgent(data.userAgent);
         if (data?.url) {
           const header: WebHeader[] = Object.keys(
             (data?.headers || {}) as Record<string, string>,
