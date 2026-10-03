@@ -5,6 +5,7 @@ import { randomString } from "../helper";
 import { OnDownloadStartResult } from "../ability/type";
 import { getCookies, JsHelper } from "./Utils";
 import { WebHeader } from "@kit.ArkUI";
+import { WebHost } from "./WebHost";
 
 export interface WebviewStyle {
   x?: number | string;
@@ -30,11 +31,26 @@ export interface WebviewInitData {
   onDownloadEnd?: (url: string, tempPath: string | undefined, success: boolean) => void;
   onNavigationRequest?: (url: string) => boolean;
   onTitleChange?: (title: string) => void;
+  onIpcMessage?: (frameUrl: string, message: string) => void;
 }
 
 interface WebviewNodeData extends WebviewInitData {
   controller: WebviewController;
   didInitialLoad?: boolean;
+  host?: WebHost;
+}
+
+// Capture the frame synchronously while ArkWeb is dispatching the proxy call.
+// A failed/empty origin must never be replaced by the top-level page URL.
+class IpcProxy {
+  constructor(private data: WebviewNodeData) {}
+
+  postMessage(message: string): void {
+    const frameUrl = this.data.controller.getLastJavascriptProxyCallingFrameUrl();
+    if (frameUrl && frameUrl !== "null") {
+      this.data.onIpcMessage?.(frameUrl, message);
+    }
+  }
 }
 
 @Builder
@@ -50,6 +66,36 @@ function WebBuilder(data: WebviewNodeData) {
     .backgroundColor(data?.style?.backgroundColor)
     .visibility(data?.style?.visible === false ? Visibility.Hidden : Visibility.Visible)
     .javaScriptAccess(data?.javascriptEnable)
+    .domStorageAccess(true)
+    .keyboardAvoidMode(WebKeyboardAvoidMode.RESIZE_VISUAL)
+    .onFocus(() => data.host!.activate())
+    .onFullScreenEnter((event) => data.host!.enterFullscreen(event.handler))
+    .onFullScreenExit(() => data.host!.exitFullscreen())
+    .multiWindowAccess(true)
+    .onShowFileSelector((event) => {
+      data.host!.selectFiles(event);
+      return true;
+    })
+    .onAlert((event) => {
+      data.host!.dialog(event.message, event.result, false);
+      return true;
+    })
+    .onConfirm((event) => {
+      data.host!.dialog(event.message, event.result, true);
+      return true;
+    })
+    .onPrompt((event) => {
+      data.host!.prompt(event);
+      return true;
+    })
+    .onWindowNew((event) => data.host!.openWindow(event))
+    .databaseAccess(true)
+    .javaScriptProxy({
+      object: new IpcProxy(data),
+      name: "ipc",
+      methodList: ["postMessage"],
+      controller: data.controller,
+    })
     .mediaPlayGestureAccess(
       typeof data?.autoplay === "boolean" && data.autoplay === true ? false : true,
     )
@@ -95,6 +141,36 @@ function EmbeddedWebBuilder(data: WebviewNodeData) {
       .height("100%")
       .backgroundColor(data?.style?.backgroundColor)
       .javaScriptAccess(data?.javascriptEnable)
+      .domStorageAccess(true)
+      .keyboardAvoidMode(WebKeyboardAvoidMode.RESIZE_VISUAL)
+      .onFocus(() => data.host!.activate())
+      .onFullScreenEnter((event) => data.host!.enterFullscreen(event.handler))
+      .onFullScreenExit(() => data.host!.exitFullscreen())
+      .multiWindowAccess(true)
+      .onShowFileSelector((event) => {
+        data.host!.selectFiles(event);
+        return true;
+      })
+      .onAlert((event) => {
+        data.host!.dialog(event.message, event.result, false);
+        return true;
+      })
+      .onConfirm((event) => {
+        data.host!.dialog(event.message, event.result, true);
+        return true;
+      })
+      .onPrompt((event) => {
+        data.host!.prompt(event);
+        return true;
+      })
+      .onWindowNew((event) => data.host!.openWindow(event))
+      .databaseAccess(true)
+      .javaScriptProxy({
+        object: new IpcProxy(data),
+        name: "ipc",
+        methodList: ["postMessage"],
+        controller: data.controller,
+      })
       .mediaPlayGestureAccess(
         typeof data?.autoplay === "boolean" && data.autoplay === true ? false : true,
       )
@@ -155,7 +231,7 @@ interface EmbeddedWebviewEntry {
   content: ComponentContent<WebviewNodeData>;
 }
 
-function ensureWebviewNodeData(data: WebviewInitData): WebviewNodeData {
+function ensureWebviewNodeData(data: WebviewInitData, ui: UIContext): WebviewNodeData {
   if (!data.webTag) {
     data.webTag = randomString();
   }
@@ -167,6 +243,7 @@ function ensureWebviewNodeData(data: WebviewInitData): WebviewNodeData {
     data.javascriptEnable = true;
   }
   const prepared = data as WebviewNodeData;
+  prepared.host = new WebHost(ui, prepared.controller);
   prepared.didInitialLoad = prepared.didInitialLoad === true;
 
   if (prepared?.devtools) {
@@ -305,7 +382,7 @@ export class RustWebviewNodeController extends NodeController {
   }
 
   addWebview(data: WebviewInitData): AddWebviewMethod {
-    const prepared = ensureWebviewNodeData(data);
+    const prepared = ensureWebviewNodeData(data, this.uiContext!);
     const webTag = prepared.webTag!;
     if (this.rootNode === null) {
       this.rootNode = new FrameNode(this.uiContext!);
@@ -333,6 +410,8 @@ export class RustWebviewNodeController extends NodeController {
       return;
     }
 
+    this.webviewEntries.get(webTag)?.host?.dispose();
+    this.webviewEntries.get(webTag)?.controller.deleteJavaScriptRegister("ipc");
     this.webviewEntries.delete(webTag);
     this.webviewList.delete(webTag);
 
@@ -349,7 +428,7 @@ export class EmbeddedWebviewManager {
   }
 
   createWebview(data: WebviewInitData): EmbeddedWebviewHandle {
-    const prepared = ensureWebviewNodeData(data);
+    const prepared = ensureWebviewNodeData(data, this.uiContext!);
     const webTag = prepared.webTag!;
     setupDownloadDelegate(prepared);
 
@@ -390,6 +469,8 @@ export class EmbeddedWebviewManager {
       return;
     }
 
+    entry.data.host?.dispose();
+    entry.data.controller.deleteJavaScriptRegister("ipc");
     this.entries.delete(webTag);
     entry.content.dispose();
   }

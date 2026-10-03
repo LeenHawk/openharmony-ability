@@ -18,7 +18,7 @@ proc-macro2 = { version = "1.0" }
 ohos-arkui-binding = { version = "0.1" }
 ohos-xcomponent-binding = { version = "0.2" }
 ohos-ime-binding = { version = "0.1" }
-ohos-web-binding = { version = "0.1" }
+ohos-web-binding = { git = "https://github.com/LeenHawk/ohos-native-bindings.git", rev = "0726726847ae4807c7adc6b86a91742219733d9e" }
 ohos-display-binding = { version = "0.0.1" }
 ohos-resource-manager-binding = { version = "0.2" }
 

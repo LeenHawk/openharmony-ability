@@ -1,3 +1,4 @@
+import { WebHost } from "../webview/WebHost";
 import { DefaultXComponent } from "./DefaultXComponent";
 import { Loadable } from "../helper/loadable";
 
@@ -22,6 +23,7 @@ struct Index {
   }
 
   onBackPress(): boolean {
+    if (WebHost.handleBackPress()) return true;
     if (typeof this.nativeModule?.onBackPressIntercept === "function") {
       return this.nativeModule.onBackPressIntercept();
     }

@@ -55,6 +55,7 @@ export interface WebViewInitData {
   onDownloadEnd?: (url: string, tempPath: string | undefined, success: boolean) => void;
   onNavigationRequest?: (url: string) => boolean;
   onTitleChange?: (title: string) => void;
+  onIpcMessage?: (frameUrl: string, message: string) => void;
 }
 
 export interface WebViewStyle {

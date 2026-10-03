@@ -54,6 +54,7 @@ pub struct WebViewInitData<'a> {
     pub on_download_end: OnDownloadEnd<'a>,
     pub on_navigation_request: Option<Function<'a, String, bool>>,
     pub on_title_change: Option<Function<'a, String, ()>>,
+    pub on_ipc_message: Option<Function<'a, FnArgs<(String, String)>, ()>>,
 }
 
 #[derive(Clone)]
@@ -205,7 +206,7 @@ impl Webview {
                 )?;
 
             let cb = env.create_function_from_closure("evaluate_js_callback", move |ctx| {
-                let ret = ctx.try_get::<String>(1)?;
+                let ret = ctx.try_get::<String>(0)?;
                 let ret = match ret {
                     Either::A(s) => s,
                     Either::B(_ret) => String::from("undefined"),
@@ -330,7 +331,7 @@ impl Webview {
     pub fn custom_protocol<S, F>(&self, protocol: S, callback: F) -> Result<()>
     where
         S: Into<String>,
-        F: Fn(&str, Request<Vec<u8>>, bool) -> Option<Response<Cow<'static, [u8]>>>,
+        F: Fn(&str, Request<Vec<u8>>, bool) -> Option<Response<Cow<'static, [u8]>>> + 'static,
     {
         self.custom_protocol_async(protocol, move |url, request, is_main_frame, responder| {
             let response = callback(url, request, is_main_frame);
@@ -343,118 +344,58 @@ impl Webview {
     pub fn custom_protocol_async<S, F>(&self, protocol: S, callback: F) -> Result<()>
     where
         S: Into<String>,
-        F: Fn(&str, Request<Vec<u8>>, bool, CustomProtocolResponder),
+        F: Fn(&str, Request<Vec<u8>>, bool, CustomProtocolResponder) + 'static,
     {
         let handle = CustomProtocolHandler::new();
         let cbs = Box::leak(Box::new(callback));
         let cbs = Arc::new(Mutex::new(cbs));
 
         handle.on_request_start(move |req, req_handle| {
-            let url: String = req.url();
-            let header = req.headers();
-            let mut iter = header.iter();
-
-            let request_body = req.http_body_stream();
-
-            let mut req_handle = Some(req_handle);
-
-            match request_body {
-                Some(body) => {
-                    let request_body_size = body.size();
-
-                    let cbs = cbs.clone();
-                    body.read(request_body_size as usize, move |buf| {
-                        let mut request_builder = Request::builder()
-                            .method(req.method().as_str())
-                            .uri(url.clone());
-                        for (key, value) in iter.by_ref() {
-                            if let (Ok(header), Ok(value)) = (
-                                HeaderName::from_bytes(key.as_bytes()),
-                                HeaderValue::from_bytes(value.as_bytes()),
-                            ) {
-                                request_builder = request_builder.header(header, value);
-                            }
-                        }
-                        let request = request_builder
-                            .body(buf)
-                            .expect("Create http:Request failed");
-
-                        let cbs = cbs.clone();
-                        let req_handle = req_handle.take().unwrap();
-                        let responder = CustomProtocolResponder {
-                            responder: Box::new(move |response| {
-                                let header = response.headers();
-                                let body = response.body();
-                                let status = response.status();
-                                let body_slice = match body {
-                                    Cow::Borrowed(slice) => slice,
-                                    Cow::Owned(vec) => vec.as_slice(),
-                                };
-
-                                let resp = ArkWebResponse::new();
-
-                                header.iter().for_each(|(k, v)| {
-                                    resp.set_header(
-                                        k.as_str(),
-                                        v.to_str().unwrap_or_default(),
-                                        true,
-                                    );
-                                });
-
-                                resp.set_status(status.as_u16() as _);
-
-                                req_handle.receive_response(resp);
-                                req_handle.receive_data(body_slice);
-                                req_handle.finish()
-                            }),
-                        };
-
-                        cbs.lock().unwrap()(&url, request, req.is_main_frame(), responder);
-                    });
-                }
-                None => {
-                    let mut request_builder = Request::builder()
-                        .method(req.method().as_str())
-                        .uri(url.clone());
-                    for (key, value) in iter {
-                        if let (Ok(header), Ok(value)) = (
-                            HeaderName::from_bytes(key.as_bytes()),
-                            HeaderValue::from_bytes(value.as_bytes()),
-                        ) {
-                            request_builder = request_builder.header(header, value);
-                        }
-                    }
-                    let request = request_builder
-                        .body(vec![])
-                        .expect("Create http:Request failed");
-
-                    let responder = CustomProtocolResponder {
-                        responder: Box::new(move |response| {
-                            let header = response.headers();
-                            let status = response.status();
-                            let body = response.body();
-                            let body_slice = match body {
-                                Cow::Borrowed(slice) => slice,
-                                Cow::Owned(vec) => vec.as_slice(),
-                            };
-
-                            let resp = ArkWebResponse::new();
-
-                            header.iter().for_each(|(k, v)| {
-                                resp.set_header(k.as_str(), v.to_str().unwrap_or_default(), true);
-                            });
-                            resp.set_status(status.as_u16() as _);
-
-                            let req_handle = req_handle.take().unwrap();
-                            req_handle.receive_response(resp);
-                            req_handle.receive_data(body_slice);
-                            req_handle.finish();
-                        }),
-                    };
-                    cbs.lock().unwrap()(&url, request, req.is_main_frame(), responder);
+            // Own metadata before the asynchronous read; never retain an iterator
+            // into a local header map or substitute the main document for the frame.
+            let frame_url = req.frame_url();
+            let is_main_frame = req.is_main_frame();
+            let mut request = Request::builder()
+                .method(req.method().as_str())
+                .uri(req.url());
+            for (key, value) in req.headers() {
+                if let (Ok(header), Ok(value)) = (
+                    HeaderName::from_bytes(key.as_bytes()),
+                    HeaderValue::from_bytes(value.as_bytes()),
+                ) {
+                    request = request.header(header, value);
                 }
             }
-
+            let responder = CustomProtocolResponder {
+                responder: Box::new(move |response| {
+                    let resp = ArkWebResponse::new();
+                    for (key, value) in response.headers() {
+                        resp.set_header(key.as_str(), value.to_str().unwrap_or_default(), true);
+                    }
+                    resp.set_status(response.status().as_u16() as _);
+                    req_handle.receive_response(resp);
+                    req_handle.receive_data(response.body().as_ref());
+                    req_handle.finish();
+                }),
+            };
+            let cbs = cbs.clone();
+            let dispatch = move |body: std::result::Result<Vec<u8>, String>| match body {
+                Ok(body) => match request.body(body) {
+                    Ok(request) => {
+                        cbs.lock().unwrap()(&frame_url, request, is_main_frame, responder)
+                    }
+                    Err(_) => {
+                        responder.respond(Response::builder().status(400).body(Vec::new()).unwrap())
+                    }
+                },
+                Err(_) => {
+                    responder.respond(Response::builder().status(400).body(Vec::new()).unwrap())
+                }
+            };
+            match req.http_body_stream() {
+                Some(body) => body.read_to_end(dispatch),
+                None => dispatch(Ok(Vec::new())),
+            }
             true
         });
 

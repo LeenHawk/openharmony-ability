@@ -1,7 +1,8 @@
-export { NativeAbility } from "./src/main/ets/ability/NativeAbility";
+export { NativeAbility, NativeAbility as RustAbility } from "./src/main/ets/ability/NativeAbility";
 export { DefaultXComponent } from "./src/main/ets/components/DefaultXComponent";
 export {
   RustWebviewNodeController,
   WebviewStyle,
   WebviewInitData,
 } from "./src/main/ets/webview/DefaultWebview";
+export { WebHost } from "./src/main/ets/webview/WebHost";

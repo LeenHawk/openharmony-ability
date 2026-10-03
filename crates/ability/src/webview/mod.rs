@@ -34,6 +34,7 @@ pub struct WebViewBuilder {
     on_download_end: Option<OnDownloadEnd>,
     on_navigation_request: Option<Box<dyn Fn(String) -> bool>>,
     on_title_change: Option<Box<dyn Fn(String)>>,
+    on_ipc_message: Option<Box<dyn Fn(String, String)>>,
 }
 
 impl WebViewBuilder {
@@ -93,6 +94,14 @@ impl WebViewBuilder {
     pub fn initialization_scripts(self, initialization_scripts: Vec<String>) -> WebViewBuilder {
         WebViewBuilder {
             initialization_scripts: Some(initialization_scripts),
+            ..self
+        }
+    }
+
+    /// Receive IPC with the calling frame URL captured synchronously by ArkWeb.
+    pub fn on_ipc_message<F: Fn(String, String) + 'static>(self, handler: F) -> Self {
+        Self {
+            on_ipc_message: Some(Box::new(handler)),
             ..self
         }
     }
@@ -218,7 +227,7 @@ impl WebViewBuilder {
                 #[cfg(feature = "drag_and_drop")]
                 let on_drag_and_drop = self.on_drag_and_drop.and_then(|handler| {
                     env.create_function_from_closure("on_drag_and_drop", move |ctx| {
-                        let ret = ctx.try_get::<String>(1)?;
+                        let ret = ctx.try_get::<String>(0)?;
                         let ret = match ret {
                             Either::A(s) => s,
                             Either::B(_ret) => String::new(),
@@ -231,8 +240,8 @@ impl WebViewBuilder {
 
                 let on_download_start = self.on_download_start.and_then(|handler| {
                     env.create_function_from_closure("on_download_start", move |ctx| {
-                        let origin_url = ctx.try_get::<String>(1)?;
-                        let temp_path = ctx.try_get::<String>(2)?;
+                        let origin_url = ctx.try_get::<String>(0)?;
+                        let temp_path = ctx.try_get::<String>(1)?;
                         let origin_url_str = match origin_url {
                             Either::A(s) => s,
                             Either::B(_ret) => String::new(),
@@ -253,9 +262,9 @@ impl WebViewBuilder {
 
                 let on_download_end = self.on_download_end.and_then(|handler| {
                     env.create_function_from_closure("on_download_end", move |ctx| {
-                        let origin_url = ctx.try_get::<String>(1)?;
-                        let temp_path = ctx.try_get::<String>(2)?;
-                        let success = ctx.try_get::<bool>(3)?;
+                        let origin_url = ctx.try_get::<String>(0)?;
+                        let temp_path = ctx.try_get::<String>(1)?;
+                        let success = ctx.try_get::<bool>(2)?;
                         let origin_url_str = match origin_url {
                             Either::A(s) => s,
                             Either::B(_ret) => String::new(),
@@ -276,7 +285,7 @@ impl WebViewBuilder {
 
                 let on_navigation_request = self.on_navigation_request.and_then(|handler| {
                     env.create_function_from_closure("on_navigation_request", move |ctx| {
-                        let ret = ctx.try_get::<String>(1)?;
+                        let ret = ctx.try_get::<String>(0)?;
                         let ret = match ret {
                             Either::A(s) => s,
                             Either::B(_ret) => String::new(),
@@ -289,7 +298,7 @@ impl WebViewBuilder {
 
                 let on_title_change = self.on_title_change.and_then(|handler| {
                     env.create_function_from_closure("on_title_change", move |ctx| {
-                        let ret = ctx.try_get::<String>(1)?;
+                        let ret = ctx.try_get::<String>(0)?;
                         let ret = match ret {
                             Either::A(s) => s,
                             Either::B(_ret) => String::new(),
@@ -299,6 +308,16 @@ impl WebViewBuilder {
                     })
                     .ok()
                 });
+
+                let on_ipc_message = self
+                    .on_ipc_message
+                    .map(|handler| {
+                        env.create_function_from_closure("on_ipc_message", move |ctx| {
+                            handler(ctx.get::<String>(0)?, ctx.get::<String>(1)?);
+                            Ok(())
+                        })
+                    })
+                    .transpose()?;
 
                 let webview = create_webview_func.call(WebViewInitData {
                     url: self.url,
@@ -321,6 +340,7 @@ impl WebViewBuilder {
                     on_download_end,
                     on_navigation_request,
                     on_title_change,
+                    on_ipc_message,
                 })?;
 
                 let web = Webview::new(id.clone(), webview)?;

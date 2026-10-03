@@ -66,6 +66,7 @@ export struct DefaultXComponent {
         onDownloadEnd: data?.onDownloadEnd,
         onNavigationRequest: data?.onNavigationRequest,
         onTitleChange: data?.onTitleChange,
+        onIpcMessage: data?.onIpcMessage,
       } as WebviewInitData;
 
       init.style = init.style || {};
@@ -116,6 +117,7 @@ export struct DefaultXComponent {
         onDownloadEnd: data?.onDownloadEnd,
         onNavigationRequest: data?.onNavigationRequest,
         onTitleChange: data?.onTitleChange,
+        onIpcMessage: data?.onIpcMessage,
       } as WebviewInitData;
 
       init.style = init.style || {};
