@@ -50,6 +50,8 @@ function WebBuilder(data: WebviewNodeData) {
     .backgroundColor(data?.style?.backgroundColor)
     .visibility(data?.style?.visible === false ? Visibility.Hidden : Visibility.Visible)
     .javaScriptAccess(data?.javascriptEnable)
+    .domStorageAccess(true)
+    .databaseAccess(true)
     .mediaPlayGestureAccess(
       typeof data?.autoplay === "boolean" && data.autoplay === true ? false : true,
     )
@@ -95,6 +97,8 @@ function EmbeddedWebBuilder(data: WebviewNodeData) {
       .height("100%")
       .backgroundColor(data?.style?.backgroundColor)
       .javaScriptAccess(data?.javascriptEnable)
+    .domStorageAccess(true)
+    .databaseAccess(true)
       .mediaPlayGestureAccess(
         typeof data?.autoplay === "boolean" && data.autoplay === true ? false : true,
       )
