@@ -188,3 +188,9 @@ custom protocol 时使用 `custom_protocol_async` / `WebviewProtocolResponder`�
 
 完整的 typeName、反向事件、线程、挂载和验收规则见
 [插件开发规范](../../docs/plugin-development-standard.md)。
+
+Document-start scripts use `runJavaScriptOnDocumentStart` on API 15 and newer.
+Each array entry remains a separate script and runs in array order, so an exception
+in one entry does not prevent the following entries from running. On API 12–14,
+the existing `javaScriptOnDocumentStart` component API is retained; it does not
+guarantee execution order.
