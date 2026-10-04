@@ -43,6 +43,7 @@ export interface WebViewInitData {
   id?: string;
   style?: WebViewStyle;
   javascriptEnabled?: boolean;
+  domStorageAccess?: boolean;
   devtools?: boolean;
   transparent?: boolean;
   autoplay?: boolean;

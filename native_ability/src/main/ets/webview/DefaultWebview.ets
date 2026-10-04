@@ -20,6 +20,7 @@ export interface WebviewInitData {
   style?: WebviewStyle;
   controller?: WebviewController;
   javascriptEnable?: boolean;
+  domStorageAccess?: boolean;
   devtools?: boolean;
   autoplay?: boolean;
   userAgent?: string;
@@ -66,7 +67,7 @@ function WebBuilder(data: WebviewNodeData) {
     .backgroundColor(data?.style?.backgroundColor)
     .visibility(data?.style?.visible === false ? Visibility.Hidden : Visibility.Visible)
     .javaScriptAccess(data?.javascriptEnable)
-    .domStorageAccess(true)
+    .domStorageAccess(data.domStorageAccess ?? false)
     .keyboardAvoidMode(WebKeyboardAvoidMode.RESIZE_VISUAL)
     .onFocus(() => data.host!.activate())
     .onFullScreenEnter((event) => data.host!.enterFullscreen(event.handler))
@@ -99,7 +100,7 @@ function WebBuilder(data: WebviewNodeData) {
     .mediaPlayGestureAccess(
       typeof data?.autoplay === "boolean" && data.autoplay === true ? false : true,
     )
-    .javaScriptOnDocumentStart(data?.initializationScripts)
+    .runJavaScriptOnDocumentStart(data.initializationScripts ?? [])
     .onControllerAttached(() => {
       const ctrl = data.controller;
       if (data.userAgent) ctrl.setCustomUserAgent(data.userAgent);
@@ -142,7 +143,7 @@ function EmbeddedWebBuilder(data: WebviewNodeData) {
       .height("100%")
       .backgroundColor(data?.style?.backgroundColor)
       .javaScriptAccess(data?.javascriptEnable)
-      .domStorageAccess(true)
+      .domStorageAccess(data.domStorageAccess ?? false)
       .keyboardAvoidMode(WebKeyboardAvoidMode.RESIZE_VISUAL)
       .onFocus(() => data.host!.activate())
       .onFullScreenEnter((event) => data.host!.enterFullscreen(event.handler))
@@ -175,7 +176,7 @@ function EmbeddedWebBuilder(data: WebviewNodeData) {
       .mediaPlayGestureAccess(
         typeof data?.autoplay === "boolean" && data.autoplay === true ? false : true,
       )
-      .javaScriptOnDocumentStart(data?.initializationScripts)
+      .runJavaScriptOnDocumentStart(data.initializationScripts ?? [])
       .onControllerAttached(() => {
         if (data.didInitialLoad === true) {
           return;

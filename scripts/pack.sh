@@ -6,5 +6,6 @@ rm -rf $SCRIPT_DIR/../package/src/main/ets
 rm -rf $SCRIPT_DIR/../dist
 
 cp -rf $SCRIPT_DIR/../native_ability/src/main/ets/ $SCRIPT_DIR/../package/src/main/ets
+cp -r "$SCRIPT_DIR/../native_ability/src/main/resources" "$SCRIPT_DIR/../package/src/main/"
 
 pushd $SCRIPT_DIR/../ && ohrs artifact --skip-libs --no-workspace

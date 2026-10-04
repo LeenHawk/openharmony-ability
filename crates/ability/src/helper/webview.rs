@@ -41,6 +41,7 @@ pub struct WebViewInitData<'a> {
     pub id: Option<String>,
     pub style: Option<WebViewStyle>,
     pub javascript_enabled: Option<bool>,
+    pub dom_storage_access: Option<bool>,
     pub devtools: Option<bool>,
     pub user_agent: Option<String>,
     pub autoplay: Option<bool>,

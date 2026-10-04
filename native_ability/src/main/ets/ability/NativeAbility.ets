@@ -152,9 +152,7 @@ export class NativeAbility extends UIAbility {
     }
 
     if (this.defaultPage) {
-      try {
-        await windowStage.loadContentByName(Entry.RouteName);
-      } catch (_) {}
+      await windowStage.loadContentByName(Entry.RouteName);
     }
   }
 

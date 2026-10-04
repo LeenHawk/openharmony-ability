@@ -3,6 +3,14 @@
     {
       "name": "page_show",
       "value": "page from package"
+    },
+    {
+      "name": "web_dialog_cancel",
+      "value": "Cancel"
+    },
+    {
+      "name": "web_dialog_ok",
+      "value": "OK"
     }
   ]
 }

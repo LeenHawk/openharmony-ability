@@ -30,9 +30,9 @@ struct WebPrompt {
           this.value = value;
         })
       Row({ space: 16 }) {
-        Button("Cancel")
+        Button($r("app.string.web_dialog_cancel"))
           .onClick(() => this.data.finish())
-        Button("OK")
+        Button($r("app.string.web_dialog_ok"))
           .onClick(() => this.data.finish(this.value))
       }
     }
@@ -147,10 +147,10 @@ export class WebHost {
     try {
       const buttons = confirm
         ? [
-            { text: "Cancel", color: "#182431" },
-            { text: "OK", color: "#007DFF" },
+            { text: $r("app.string.web_dialog_cancel"), color: "#182431" },
+            { text: $r("app.string.web_dialog_ok"), color: "#007DFF" },
           ]
-        : [{ text: "OK", color: "#007DFF" }];
+        : [{ text: $r("app.string.web_dialog_ok"), color: "#007DFF" }];
       const response = await this.ui.getPromptAction().showDialog({ message, buttons });
       if (response.index === (confirm ? 1 : 0)) result.handleConfirm();
       else result.handleCancel();

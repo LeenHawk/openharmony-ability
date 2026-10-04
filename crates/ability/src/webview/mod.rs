@@ -19,6 +19,7 @@ pub struct WebViewBuilder {
     pub url: Option<String>,
     pub style: Option<WebViewStyle>,
     pub javascript_enabled: Option<bool>,
+    pub dom_storage_access: Option<bool>,
     pub devtools: Option<bool>,
     pub user_agent: Option<String>,
     pub autoplay: Option<bool>,
@@ -66,6 +67,14 @@ impl WebViewBuilder {
     pub fn javascript_enabled(self, javascript_enabled: bool) -> WebViewBuilder {
         WebViewBuilder {
             javascript_enabled: Some(javascript_enabled),
+            ..self
+        }
+    }
+
+    /// Enable DOM storage explicitly; unset preserves the ArkWeb default.
+    pub fn dom_storage_access(self, enabled: bool) -> WebViewBuilder {
+        WebViewBuilder {
+            dom_storage_access: Some(enabled),
             ..self
         }
     }
@@ -324,6 +333,7 @@ impl WebViewBuilder {
                     id: Some(id.clone()),
                     style: self.style,
                     javascript_enabled: self.javascript_enabled,
+                    dom_storage_access: self.dom_storage_access,
                     devtools: self.devtools,
                     user_agent: self.user_agent,
                     autoplay: self.autoplay,
