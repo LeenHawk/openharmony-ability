@@ -68,7 +68,8 @@ function WebBuilder(data: WebviewNodeData) {
     .visibility(data?.style?.visible === false ? Visibility.Hidden : Visibility.Visible)
     .javaScriptAccess(data?.javascriptEnable)
     .domStorageAccess(data.domStorageAccess ?? false)
-    .keyboardAvoidMode(WebKeyboardAvoidMode.RESIZE_VISUAL)
+    // Docked keyboards resize the layout viewport so fixed UI stays reachable.
+    .keyboardAvoidMode(WebKeyboardAvoidMode.RESIZE_CONTENT)
     .onFocus(() => data.host!.activate())
     .onFullScreenEnter((event) => data.host!.enterFullscreen(event.handler))
     .onFullScreenExit(() => data.host!.exitFullscreen())
@@ -144,7 +145,8 @@ function EmbeddedWebBuilder(data: WebviewNodeData) {
       .backgroundColor(data?.style?.backgroundColor)
       .javaScriptAccess(data?.javascriptEnable)
       .domStorageAccess(data.domStorageAccess ?? false)
-      .keyboardAvoidMode(WebKeyboardAvoidMode.RESIZE_VISUAL)
+      // Docked keyboards resize the layout viewport so fixed UI stays reachable.
+      .keyboardAvoidMode(WebKeyboardAvoidMode.RESIZE_CONTENT)
       .onFocus(() => data.host!.activate())
       .onFullScreenEnter((event) => data.host!.enterFullscreen(event.handler))
       .onFullScreenExit(() => data.host!.exitFullscreen())

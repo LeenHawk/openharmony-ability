@@ -101,6 +101,13 @@ export class WebHost {
     return true;
   }
 
+  /** Runs a script in the active webview's main frame, the same target as back navigation. */
+  static async runJavaScript(script: string): Promise<string> {
+    const host = WebHost.active;
+    if (!host) throw new Error("No active webview");
+    return host.controller.runJavaScript(script);
+  }
+
   async enterFullscreen(handler: FullScreenExitHandler): Promise<void> {
     const context = this.ui.getHostContext() as common.UIAbilityContext;
     try {
